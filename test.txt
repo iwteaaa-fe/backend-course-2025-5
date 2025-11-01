@@ -1,0 +1,14 @@
+# Запис картинки (потрібен файл 200.jpeg у поточній папці)
+# curl -X PUT --data-binary @200.jpeg http://localhost:8080/200
+
+# Отримання картинки з кешу
+# curl -X GET http://localhost:8080/200 -o from_cache.jpeg
+
+# Видалення картинки з кешу
+# curl -X DELETE http://localhost:8080/200
+
+# Спроба отримати видалену картинку
+# curl -v -X GET http://localhost:8080/200
+
+# Тестування неіснуючого методу
+# curl -X POST http://localhost:8080/404

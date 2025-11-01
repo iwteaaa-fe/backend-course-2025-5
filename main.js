@@ -1,6 +1,6 @@
 const http = require('http');
+const fs = require('fs/promises');
 const path = require('path');
-const fs = require('fs')
 const { program } = require('commander');
 
 program
@@ -28,24 +28,62 @@ if (!options.cache) {
 
 const host = options.host;
 const port = parseInt(options.port, 10);
-const cacheDir = path.resolve(options.cache);
+const cacheDir = options.cache;
 
-try {
-    if (!fs.existsSync(cacheDir)) {
-        console.log(`Creating directory: ${cacheDir}`);
-        fs.mkdirSync(cacheDir, { recursive: true });
-    } else {
-        console.log(`Directory for cache already exists: ${cacheDir}`);
+fs.mkdir(cacheDir, { recursive: true })
+    .catch(error => {
+        console.error(error.message);
+        process.exit(1);
+    });
+
+const server = http.createServer(async (req, res) => {
+    const httpStatusCode = req.url.slice(1);
+    const filePath = path.join(cacheDir, `${httpStatusCode}.jpeg`);
+
+    try {
+        switch (req.method) {
+            case 'GET':
+                try {
+                    const data = await fs.readFile(filePath);
+                    res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+                    res.end(data);
+                } catch (error) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('Not Found');
+                }
+                break;
+
+            case 'PUT':
+                const chunks = [];
+                req.on('data', chunk => chunks.push(chunk));
+                req.on('end', async () => {
+                    const data = Buffer.concat(chunks);
+                    await fs.writeFile(filePath, data);
+                    res.writeHead(201, { 'Content-Type': 'text/plain' });
+                    res.end('Created');
+                });
+                break;
+
+            case 'DELETE':
+                try {
+                    await fs.unlink(filePath);
+                    res.writeHead(200, { 'Content-Type': 'text/plain' });
+                    res.end('OK');
+                } catch (error) {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('Not Found');
+                }
+                break;
+
+            default:
+                res.writeHead(405, { 'Content-Type': 'text/plain' });
+                res.end('Method not allowed');
+        }
+    } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal Server Error');
     }
-} catch (error) {
-    console.error(error.message);
-    process.exit(1);
-}
-
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Proxy server is working!');
-})
+});
 
 server.listen(port, host, () => {
     console.log(`Server is running on http://${host}:${port}`);
