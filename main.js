@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs/promises');
 const path = require('path');
 const { program } = require('commander');
+const superagent = require('superagent');
 
 program
     .option('-h, --host <host>', 'Server host')
@@ -48,8 +49,15 @@ const server = http.createServer(async (req, res) => {
                     res.writeHead(200, { 'Content-Type': 'image/jpeg' });
                     res.end(data);
                 } catch (error) {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    res.end('Not Found');
+                    try {
+                        const response = await superagent.get(`https://http.cat/${httpStatusCode}`);
+                        await fs.writeFile(filePath, response.body);
+                        res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+                        res.end(response.body);
+                    } catch (downloadError) {
+                        res.writeHead(404, { 'Content-Type': 'text/plain' });
+                        res.end('Not Found');
+                    }
                 }
                 break;
 
